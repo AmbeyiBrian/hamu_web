@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+// Define API URL centrally to be used across the application
+export const API_URL = 'http://192.169.0.105:8000/api';
+
 // Create an axios instance with the base URL of your Django backend
 const API = axios.create({
-  baseURL: 'http://192.169.0.104:8000/api/', // Change this to match your Django API URL
+  baseURL: API_URL + '/', // Ensure the baseURL ends with a trailing slash
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,9 +14,21 @@ const API = axios.create({
 // Add a request interceptor for authentication
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Get token from user object instead of 'token' key
+    const userStr = localStorage.getItem('user');
+    let token = null;
+    
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        token = userData.access;
+      } catch (e) {
+        console.error('Failed to parse user data from localStorage', e);
+      }
+    }
+    
     if (token) {
-      config.headers.Authorization = `Token ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },

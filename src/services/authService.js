@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000/api';
+import { API_URL } from '../api/apiConfig';
 
 // Create a shared axios instance that can be imported and used across the app
 export const axiosInstance = axios.create({
@@ -46,8 +45,7 @@ class AuthService {
   constructor() {
     // Initialize auth on construction
     this.setupAuth();
-  }
-  // Login user and store tokens
+  }  // Login user and store tokens
   async login(username, password) {
     try {
       console.log('🔐 Login attempt with phone:', username);
@@ -60,8 +58,12 @@ class AuthService {
       if (response.data.access) {
         console.log('🔐 Login successful, token received');
         
-        // Set the token in axios and axiosInstance headers
+        // Important: Set the token in axios and axiosInstance headers FIRST
+        // before any other API calls to prevent race conditions
         this.setAuthHeader(response.data.access);
+        
+        // Add a longer delay to ensure headers are fully applied
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Fetch user profile data
         try {
@@ -74,7 +76,8 @@ class AuthService {
           // Store both auth tokens and user profile data
           const userData = {
             ...response.data,
-            user: userResponse.data
+            user: userResponse.data,
+            loginTime: new Date().toISOString() // Add login timestamp
           };
           
           localStorage.setItem('user', JSON.stringify(userData));
@@ -82,8 +85,14 @@ class AuthService {
         } catch (profileError) {
           console.error('Error fetching user profile:', profileError);
           // If we can't get the profile, still store the auth data
-          localStorage.setItem('user', JSON.stringify(response.data));
+          localStorage.setItem('user', JSON.stringify({
+            ...response.data,
+            loginTime: new Date().toISOString()
+          }));
         }
+        
+        // Double-check and reapply the auth header to ensure it's set
+        this.setAuthHeader(response.data.access);
         
         // Extra debug - log the stored token
         console.log('Stored token in localStorage:', response.data.access.substring(0, 20) + '...');
@@ -93,6 +102,8 @@ class AuthService {
         });
       }
       
+      // Wait a moment for everything to be properly set up before continuing
+      await new Promise(resolve => setTimeout(resolve, 300));
       return response.data;
     } catch (error) {
       console.error('🔐 Login error:', error);

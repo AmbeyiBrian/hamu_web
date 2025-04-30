@@ -8,7 +8,8 @@ import {
   Container,
   Alert,
   InputAdornment,
-  IconButton
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import { 
   Person as PersonIcon,
@@ -51,8 +52,7 @@ const Login = () => {
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
-  
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!credentials.username.trim() || !credentials.password.trim()) {
@@ -66,6 +66,9 @@ const Login = () => {
       
       const authData = await authService.login(credentials.username, credentials.password);
       console.log('Login successful, token received:', authData.access ? 'Yes' : 'No');
+      
+      // Wait for token to be fully applied across all axios instances (500ms should be enough)
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Navigate to the intended destination
       navigate(from, { replace: true });
@@ -106,6 +109,11 @@ const Login = () => {
           }}
         >
           <Box sx={{ mb: 3, textAlign: 'center' }}>
+            <img
+              src={require('../assets/icons/icon.png')}
+              alt="Business Logo"
+              style={{ width: 80, height: 80, marginBottom: 12 }}
+            />
             <Typography variant="h4" component="h1" gutterBottom>
               HAMU Water
             </Typography>
@@ -172,15 +180,39 @@ const Login = () => {
                   </InputAdornment>
                 ),
               }}
-            />
-            <Button
+            />            <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
+              sx={{ 
+                mt: 3, 
+                mb: 2, 
+                py: 1.5,
+                position: 'relative',
+                '&.Mui-disabled': {
+                  backgroundColor: 'primary.main',
+                  opacity: 0.7,
+                  color: 'white'
+                }
+              }}
               disabled={loading}
             >
-              {loading ? 'Logging in...' : 'Log In'}
+              {loading ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress 
+                    size={24} 
+                    sx={{ 
+                      color: 'white',
+                      position: 'absolute',
+                      left: '30%',
+                      marginLeft: '-12px'
+                    }} 
+                  />
+                  <span style={{ marginLeft: 24 }}>Signing in...</span>
+                </Box>
+              ) : (
+                'Log In'
+              )}
             </Button>
           </Box>
         </Paper>

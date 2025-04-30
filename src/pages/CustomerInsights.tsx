@@ -169,12 +169,17 @@ const CustomerInsights: React.FC = () => {
     queryKey: ['customerAnalytics', shopId],
     queryFn: () => analyticsService.getCustomerAnalytics(shopId),
     staleTime: 60 * 1000, // 1 minute
-  });
-
-  // Format customer activity data for pie chart
+  });  // Format customer activity data for pie chart
   const customerActivityData: CustomerActivity[] = customerData && Object.entries(customerData.customer_activity).map(([status, count]) => ({
     name: status,
-    value: count as number
+    value: count as number,
+    color: 
+      status === 'Active' ? '#4661d1' :  // Blue
+      status === 'Inactive' ? '#43a047' : // Green
+      status === 'New' ? '#ff9800' :      // Orange
+      status === 'Irregular' ? '#9c27b0' : // Purple
+      status === 'Very Active' ? '#e53935' : // Red
+      '#00acc1' // Teal (fallback for any other status)
   }));
 
   // Customer growth trend data

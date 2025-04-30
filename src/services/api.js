@@ -1,7 +1,6 @@
 import axios from 'axios';
 import authService, { axiosInstance } from './authService';
-
-const API_URL = 'http://localhost:8000/api';
+import { API_URL } from '../api/apiConfig';
 
 // Add request interceptor with detailed debugging to identify authentication issues
 axiosInstance.interceptors.request.use(
@@ -9,16 +8,40 @@ axiosInstance.interceptors.request.use(
     // Get a fresh token each time to ensure we're using the latest
     const token = authService.getAccessToken();
     
+    // Check if this is an auth-related endpoint that shouldn't have the token
+    const isAuthEndpoint = config.url?.includes('/token/');
+    
     // Log detailed information about the request for debugging
     console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     
-    if (token) {
+    if (token && !isAuthEndpoint) {
       // Ensure the Authorization header is set correctly
       // Using bracket notation to avoid case sensitivity issues
       config.headers['Authorization'] = `Bearer ${token}`;
+      
+      // Also set it in the direct property to be extra safe
+      if (!config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      
       console.log(`📤 Token applied: Bearer ${token.substring(0, 15)}...`);
-    } else {
+      
+      // Add a flag to indicate this request should be authenticated
+      config._requiresAuth = true;
+    } else if (!isAuthEndpoint) {
       console.warn('⚠️ No auth token available for request:', config.url);
+      
+      // Check if user just logged in but token isn't in axios yet (race condition)
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        if (parsedUser?.access) {
+          // We have a token in localStorage but it wasn't picked up - force apply it
+          console.log('🔄 Found token in localStorage but not in auth service, applying it now');
+          config.headers['Authorization'] = `Bearer ${parsedUser.access}`;
+          config.headers.Authorization = `Bearer ${parsedUser.access}`;
+        }
+      }
     }
     
     // Log the final headers being sent
@@ -46,9 +69,38 @@ axiosInstance.interceptors.response.use(
       console.error('❌ Error response headers:', error.response.headers);
     }
     
-    // If the error is 401 and not already retrying
+    // If the error is 401 and not already retrying or refreshing
     if (error.response?.status === 401 && !error.config._retry) {
       error.config._retry = true;
+      console.log('🔄 Got 401, attempting to recover...');
+      
+      // Check if this is a first-time login race condition
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        const loginTime = parsedUser?.loginTime ? new Date(parsedUser.loginTime) : null;
+        const now = new Date();
+        
+        // If the user just logged in within the last 5 seconds, this might be a race condition
+        if (loginTime && (now.getTime() - loginTime.getTime() < 5000)) {
+          console.log('🔄 Recent login detected, applying token and retrying...');
+          
+          // Wait a moment to ensure token is properly set
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Apply the token from localStorage directly
+          if (parsedUser?.access) {
+            error.config.headers['Authorization'] = `Bearer ${parsedUser.access}`;
+            error.config.headers.Authorization = `Bearer ${parsedUser.access}`;
+            
+            // Ensure the token is also properly set in auth service for future requests
+            authService.setAuthHeader(parsedUser.access);
+            
+            console.log('🔄 Retrying request with token from localStorage');
+            return axiosInstance(error.config);
+          }
+        }
+      }
       
       try {
         console.log('🔄 Attempting to refresh token...');

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_URL } from './apiConfig';
 
 // Types for analytics data
 export interface SalesSummary {
@@ -38,13 +39,12 @@ export interface FinancialSummary {
   cash_flow: {
     inflow: number;
     outflow: number;
-    net: number;
-  };
+    net: number;  };
 }
 
 // Create an axios instance for API calls
 const API = axios.create({
-  baseURL: 'http://192.169.0.104:8000/api/', // Change this to match your Django API URL
+  baseURL: API_URL + '/', // Ensure the baseURL ends with a trailing slash
   headers: {
     'Content-Type': 'application/json',
   },
@@ -53,7 +53,19 @@ const API = axios.create({
 // Add a request interceptor for authentication
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Get token from user object in localStorage
+    const userStr = localStorage.getItem('user');
+    let token = null;
+    
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        token = userData.access;
+      } catch (e) {
+        console.error('Failed to parse user data from localStorage', e);
+      }
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
