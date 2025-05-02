@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Define API URL centrally to be used across the application
-export const API_URL = 'http://192.169.0.105:8000/api';
+export const API_URL = 'https://api.hamuwater.com/api';
 
 // Create an axios instance with the base URL of your Django backend
 const API = axios.create({
